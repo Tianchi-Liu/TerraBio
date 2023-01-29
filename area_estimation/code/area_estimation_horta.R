@@ -18,6 +18,9 @@ dataCEOYR_TB <- read.csv(paste(path,'ceo-TerraBio_Validation_2017_2021_LandTrend
 head(dataCEOYR_TB)
 colnames(dataCEOYR_TB)
 
+dataCEOYR_TB_cf <- read.csv(paste(path,'ceo-TerraBio_CounterfactualArea_2017_2021_LandTrendrResults_Horta-sample-data-2023-01-28.csv', sep = "")) 
+colnames(dataCEOYR_TB_cf)
+
 CEO_LU_df <- read.csv(paste(path,'updated_ceo_horta_land_uses.csv', sep = "")) 
 colnames(CEO_LU_df)
 
