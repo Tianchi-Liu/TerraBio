@@ -11,7 +11,8 @@ library(scales)
 library(lubridate)
 
 # setwd("C:\\Users\\karis\\Documents\\SBP\\AreaEstimation")
-path <- "C:/Users/hayle/Desktop/terrabio/"
+# path <- "C:/Users/hayle/Desktop/terrabio/"
+path <- "C:\\Users\\tianc\\OneDrive\\Documents\\SIG\\TerraBio\\TerraBio\\area_estimation\\"
 
 # preprocess data ####
 ## read in CEO data ####
@@ -26,7 +27,7 @@ colnames(dataGEE_TB)[14]<-'Loss17_21'  # "Forest.loss.2017.2021." T/F
 colnames(dataGEE_TB)[13]<-'LC2021'  # T/F, T = forest, F = non-forest
 colnames(dataGEE_TB)[12]<-'Gain17_21'
 colnames(dataGEE_TB)[28] <- 'pl_strata' # pl_horta_results, changing to be consistent with old script
-colnames(dataGEE_TB)[21] <- 'est_yr'
+colnames(dataGEE_TB)[21] <- 'est_yr' # some NAs
 dataGEE_TB<-dataGEE_TB[,c(29, 28, 20, 22, 21, 14, 13, 12, 15, 6:10)]
 colnames(dataGEE_TB)
 head(dataGEE_TB)
@@ -55,8 +56,7 @@ dataStrata_TB[,c(3, 2, 4)]
 dataStrata_TB[4]<-'strataName'  # readable column now filled with 'strataName'
 # readable column used to contain Forest, Degradation, Deforestation, NonForest
 
-## Merge strata pixel-count data with CEO-GEE-combo data ####
-#CEO has pl_strata
+## Merge strata pixel-count data with CEO-GEE-combo data #### CEO has pl_strata
 dataSBP_TB<- merge(dataall_TB, dataStrata_TB[c(3, 2, 4)], by.x= 'pl_strata', by.y = 'map_value', all.x = T)
 head(dataSBP_TB)
 colnames(dataSBP_TB)  # count, readable from dataStrata
@@ -221,7 +221,7 @@ calc_stand_age_21_17 <- function(CEOinfo, StartAge_TB) {
 }
 
 for (r in 1:nrow(dataSBP_TB)) {
-  # print(r)
+  print(r)
   CEOinfo_TB <- dataSBP_TB[r, c('LC_forest_2021CEO','YrLossCEO','YrGainCEO',
                           'HasLoss','HasGain','LossThenGain','GainThenLoss')]
   CEOStandAge_TB[r, ] <- calc_stand_age_21_17(CEOinfo_TB, StartAge_TB)
@@ -256,20 +256,22 @@ lines(0:7, 0:7)
 
 ## estimate carbon per pixel ###
 
-### tropical humid forest south america: #### 
-b0_TB <- 2.479989225520437
-b1_TB <- 0.12579472538348987
-b2_TB <- 5.180809811711873
+### tropical humid forest south america: ####
+# values from:
+# https://docs.google.com/spreadsheets/d/1hqsMtjpL0rz9lxHpDF7uB0Rav6-LnF8k/edit?usp=sharing&ouid=108736617378831948688&rtpof=true&sd=true
+b0_TB <- 150.314256339408
+b1_TB <- 0.0879268551361381
+b2_TB <- 2.2777846047548
 
-### CI upper #! NEED TO UPDATE FOR TROP HUM SA VALUES
-b0up_TB <- 83.6653
-b1up_TB <- 0.048341
-b2up_TB <- 1.286441
+### CI upper
+b0up_TB <- 200
+b1up_TB <- 0.07
+b2up_TB <- 1.75637566011075
 
-### CI lower: #! NEED TO UPDATE FOR TROP HUM SA VALUES
-b0low_TB <- 62.1984
-b1low_TB <- 0.086366
-b2low_TB <- 4.068786
+### CI lower
+b0low_TB <- 90.0577797395432
+b1low_TB <- 0.184813655017453
+b2low_TB <- 5.7594224066522
 
 ##CEO carbon calcs
 CEOcarbonTropHum <- data.frame(matrix(ncol = 5, nrow = length(dataSBP_TB$LC_forest_2021CEO)))
@@ -308,6 +310,9 @@ C_est_ci_df_TB <- CarbonTropHum
 forest_type_TB <- 'TropHum'
 forest_type_full_TB <- 'tropical_humid'
 
+### quick fix of count ####
+C_est_ci_df_TB$count[C_est_ci_df_TB$count == 5] <- 6
+
 ### survey design ####
 strat_design_TB <- svydesign(id = ~1, strata = ~pl_strata, fpc = ~count,
                           data = C_est_ci_df_TB)
@@ -326,13 +331,13 @@ for (yyyy in 2017:2021) { #! UPDATE FOR CORRECT YEARS
   C_est_ci_yyyy_TB <- cbind(coef(svy_tot_TB), ci_TB)
   # total C and CI based on upperCI of per-pixel C estimate
   C_est_formula_up_TB <- as.formula(paste0('~carbon',as.character(yyyy),
-                                        forest_type_TB,'up'))
+                                        forest_type_TB,'Up'))
   svy_tot_up_TB <- svytotal(C_est_formula_up_TB, strat_design_TB)  # total C
   ci_up_TB <- confint(svy_tot_up_TB)  # CI of total C
   C_est_ci_yyyy_up_TB <- cbind(coef(svy_tot_up_TB), ci_up_TB)
   # total C and CI based on lowerCI of per-pixel C estimate
   C_est_formula_low_TB <- as.formula(paste0('~carbon',as.character(yyyy),
-                                         forest_type_TB,'low'))
+                                         forest_type_TB,'Low'))
   svy_tot_low_TB <- svytotal(C_est_formula_low_TB, strat_design_TB)  # total C
   ci_low_TB <- confint(svy_tot_low_TB)  # CI of total C
   C_est_ci_yyyy_low_TB <- cbind(coef(svy_tot_low_TB), ci_low_TB)
@@ -354,7 +359,7 @@ colnames(C_est_ci_ci_df_TB) <- c('year',
                               'low95CI_totalC_estimate_from_lowGrowthFunc_ton')
 view(C_est_ci_ci_df_TB)
 
-write.csv(C_est_ci_ci_df_TB, file = paste0(path, 'results/',
+write.csv(C_est_ci_ci_df_TB, file = paste0(path, 'results\\',
                                         'C_estimate_95ci_loMiUpGrowthFunc_',
                                         'start',
                                         as.character(StartAge_TB),
