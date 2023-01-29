@@ -18,6 +18,9 @@ dataCEOYR_TB <- read.csv(paste(path,'ceo-TerraBio_Validation_2017_2021_LandTrend
 head(dataCEOYR_TB)
 colnames(dataCEOYR_TB)
 
+CEO_LU_df <- read.csv(paste(path,'updated_ceo_horta_land_uses.csv', sep = "")) 
+colnames(CEO_LU_df)
+
 ## read in and prep GEE data ####
 dataGEE_TB <- read.csv(paste(path,'ceo-standage-horta-2017-2021-clean.csv', sep = ""))
 colnames(dataGEE_TB)
