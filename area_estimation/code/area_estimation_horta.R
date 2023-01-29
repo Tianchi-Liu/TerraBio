@@ -10,9 +10,7 @@ library(dplyr)
 library(scales)
 library(lubridate)
 
-# setwd("C:\\Users\\karis\\Documents\\SBP\\AreaEstimation")
-# path <- "C:/Users/hayle/Desktop/terrabio/"
-path <- "C:\\Users\\tianc\\OneDrive\\Documents\\SIG\\TerraBio\\TerraBio\\area_estimation\\"
+path <- "C:\\Users\\tianc\\OneDrive\\Documents\\SIG\\TerraBio\\TerraBio\\area_estimation\\data\\"
 
 # preprocess data ####
 ## read in CEO data ####
