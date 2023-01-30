@@ -1,28 +1,37 @@
 #####################################################################
 library(survey)
 library(tidyverse)
-library(knitr)
-library(rmarkdown)
-library(tidyr)
-library(networkD3)
-library(tidyverse)
-library(dplyr)
-library(scales)
-library(lubridate)
 
 path <- "C:\\Users\\tianc\\OneDrive\\Documents\\SIG\\TerraBio\\TerraBio\\area_estimation\\data\\"
 
 # preprocess data ####
 ## read in CEO data ####
-dataCEOYR_TB <- read.csv(paste(path,'ceo-TerraBio_Validation_2017_2021_LandTrendrResults_Horta-sample-data-2022-11-29.csv', sep = "")) 
-head(dataCEOYR_TB)
-colnames(dataCEOYR_TB)
-
+# simple random sample plots within farm
+dataCEOYR_TB_farm <- read.csv(paste(path,'ceo-TerraBio_Validation_2017_2021_LandTrendrResults_Horta-sample-data-2022-11-29.csv', sep = "")) 
+colnames(dataCEOYR_TB_farm)
+# 10 random plots in counterfactual area outside farm
 dataCEOYR_TB_cf <- read.csv(paste(path,'ceo-TerraBio_CounterfactualArea_2017_2021_LandTrendrResults_Horta-sample-data-2023-01-28.csv', sep = "")) 
 colnames(dataCEOYR_TB_cf)
+# all CEO data: farm + counterfactual area
+dataCEOYR_TB <- bind_rows(dataCEOYR_TB_farm, dataCEOYR_TB_cf)
+# keep cols in farm data
+dataCEOYR_TB_raw <- dataCEOYR_TB[, colnames(dataCEOYR_TB_farm)]  
 
-CEO_LU_df <- read.csv(paste(path,'updated_ceo_horta_land_uses.csv', sep = "")) 
-colnames(CEO_LU_df)
+## read in land use info of CEO data ####
+farm_LU_df <- read.csv(paste(path,'updated_ceo_horta_land_uses.csv', sep = "")) 
+cf_LU_df <- read.csv(paste(path,'updated_ceo_horta_land_uses_COUNTERFACTUAL.csv', sep = "")) 
+LU_df <- rbind(farm_LU_df, cf_LU_df)
+
+## round lat lon to 6 decimals  ####
+# otherwise farm data cannot be enriched with land use info 
+dataCEOYR_TB_raw$lon <- round(dataCEOYR_TB_raw$lon, 6)
+dataCEOYR_TB_raw$lat <- round(dataCEOYR_TB_raw$lat, 6)
+LU_df$LON <- round(LU_df$LON, 6)
+LU_df$LAT <- round(LU_df$LAT, 6)
+
+## enrich CEO data with land use info ####
+dataCEOYR_TB <- merge(dataCEOYR_TB_raw, LU_df,
+                      by.x = c('lon', 'lat'), by.y = c('LON', 'LAT'))
 
 ## read in and prep GEE data ####
 dataGEE_TB <- read.csv(paste(path,'ceo-standage-horta-2017-2021-clean.csv', sep = ""))
@@ -49,21 +58,24 @@ dataCEOYR_TB$YrLossCEO[is.na(dataCEOYR_TB$YrLossCEO)] <- 9999
 dataCEOYR_TB$YrGainCEO[is.na(dataCEOYR_TB$YrGainCEO)] <- 9999
 
 ## merge GEE & CEO data, remove extra strata ####
-dataall_TB <- merge(dataGEE_TB, dataCEOYR_TB[,c(5, 12, 16, 18, 22)],
-                by.x = c('pl_sampleid', 'email'), by.y = c('pl_sampleid', 'email'))
-colnames(dataall_TB)  # "LC_forest_2021CEO""YrLossCEO""YrGainCEO" from dataCEOYR
+dataall_TB <- merge(dataGEE_TB, dataCEOYR_TB[,c(5, 12, 16, 18, 22, 32)],
+                    by.x = c('pl_sampleid', 'email'), 
+                    by.y = c('pl_sampleid', 'email'),
+                    all = TRUE)
+colnames(dataall_TB)  # "LC_forest_2021CEO""YrLossCEO""YrGainCEO" "land_use"
+# from dataCEOYR
 
 ## read in and prep strata pixel-count data ####
 dataStrata_TB <- read.csv(paste(path, "countsReadable_Horta_lt_loss_greatest_2017_2021_SAMZguidance_Neutral_v2.csv", sep = ""))
 head(dataStrata_TB)
 dataStrata_TB[,c(3, 2, 4)]
-dataStrata_TB[4]<-'strataName'  # readable column now filled with 'strataName'
-# readable column used to contain Forest, Degradation, Deforestation, NonForest
+dataStrata_TB <- rename(dataStrata_TB, strataName=readable)
 
 ## Merge strata pixel-count data with CEO-GEE-combo data #### CEO has pl_strata
-dataSBP_TB<- merge(dataall_TB, dataStrata_TB[c(3, 2, 4)], by.x= 'pl_strata', by.y = 'map_value', all.x = T)
+dataSBP_TB<- merge(dataall_TB, dataStrata_TB[c(3, 2, 4)], 
+                   by.x= 'pl_strata', by.y = 'map_value', all.x = T)
 head(dataSBP_TB)
-colnames(dataSBP_TB)  # count, readable from dataStrata
+colnames(dataSBP_TB)  # count, strataName from dataStrata
 rm(dataCEOYR_TB, dataall_TB, dataGEE_TB, dataStrata_TB)
 
 ######################
@@ -71,7 +83,7 @@ rm(dataCEOYR_TB, dataall_TB, dataGEE_TB, dataStrata_TB)
 ## convert CEO info to stand age ####
 # goal: fill this df w/ stand ages (a row for each plot)
 CEOStandAge_TB <- data.frame(matrix(ncol = length(2021:2017),
-                                 nrow = length(dataSBP_TB$LC_forest_2021CEO)))
+                                    nrow = length(dataSBP_TB$LC_forest_2021CEO)))
 colnames(CEOStandAge_TB) <- 2021:2017
 
 #### preprocess CEO info in dataSBP ####
@@ -104,7 +116,7 @@ for (x in gain_and_loss_TB){
 }
 
 #### filling stand age into CEOStandAge ####
-StartAge_TB <- 47 # moderate assumed age of 15 in 1985
+StartAge_TB <- 37.5  # stand age in 2017
 
 # returns a vector of stand ages from 2021 to 2017
 # #StartAge is the assumed stand age in 2017 if that cannot be determined
@@ -233,30 +245,30 @@ for (r in 1:nrow(dataSBP_TB)) {
 view(CEOStandAge_TB)
 
 # #### compare with stand age and carbon by year from the map ####
-# Carbon assumes a forest start age of 80 and is for natural regeneration
-age_carbon_df_TB <- read.csv(paste(path, 'ceo-samples-standage-carbon-horta.csv', sep = ""))
-age_df_TB <- age_carbon_df_TB[, grepl('standAge', colnames(age_carbon_df_TB))]
-# sampleid column not exported, add it here
-age_carbon_df_TB$sampleid <- c(3,6,8,9,11,16,19,26,28,43,46,47,53,59,69,73,48,85,86,87,81,82,83,84,0,1
-,2,4,5,12,13,14,15,17,18,20,21,22,24,25,27,29,30,31,32,34,35,36,38,39,40,41,42,44,45,49,50,51,52,54,55,
-56,57,58,60,62,63,64,65,66,67,68,70,71,72,74,76,79,7,10,23,33,37,61,75,77,78)
-age_df_TB <- cbind(age_carbon_df_TB$sampleid, age_df_TB)
-carbon_df_TB <- age_carbon_df_TB[, grepl('carbon', colnames(age_carbon_df_TB))]
-carbon_df_TB <- cbind(age_carbon_df_TB$sampleid, carbon_df_TB)
-# view(age_df[order(age_df[,1]),
-#             order(colnames(age_df), decreasing = T)])
-# view(CEOStandAge[order(dataSBP$pl_sampleid), ])
-carbon_df_ord_TB <- carbon_df_TB[order(carbon_df_TB[,1]),
-                           order(colnames(carbon_df_TB), decreasing = T)]
-
-##### scatter plot carbon for each sample pt: carbon based on map (age_carbon_df) ####
-# vs carbon based on CEO (CEOcarbonNReg from below made with start age 47)
-# for 2021 only
-plot(CEOcarbonNReg[order(dataSBP$pl_sampleid), 'carbon2021NReg'],
-     carbon_df_ord$X2021_carbon*0.09,
-     pch=19, xlab='based on CEO', ylab='based on map',
-     main='Estimate carbon in sample plots (tonne) in 2021')
-lines(0:7, 0:7)
+# # Carbon assumes a forest start age of 80 and is for natural regeneration
+# age_carbon_df_TB <- read.csv(paste(path, 'ceo-samples-standage-carbon-horta.csv', sep = ""))
+# age_df_TB <- age_carbon_df_TB[, grepl('standAge', colnames(age_carbon_df_TB))]
+# # sampleid column not exported, add it here
+# age_carbon_df_TB$sampleid <- c(3,6,8,9,11,16,19,26,28,43,46,47,53,59,69,73,48,85,86,87,81,82,83,84,0,1
+# ,2,4,5,12,13,14,15,17,18,20,21,22,24,25,27,29,30,31,32,34,35,36,38,39,40,41,42,44,45,49,50,51,52,54,55,
+# 56,57,58,60,62,63,64,65,66,67,68,70,71,72,74,76,79,7,10,23,33,37,61,75,77,78)
+# age_df_TB <- cbind(age_carbon_df_TB$sampleid, age_df_TB)
+# carbon_df_TB <- age_carbon_df_TB[, grepl('carbon', colnames(age_carbon_df_TB))]
+# carbon_df_TB <- cbind(age_carbon_df_TB$sampleid, carbon_df_TB)
+# # view(age_df[order(age_df[,1]),
+# #             order(colnames(age_df), decreasing = T)])
+# # view(CEOStandAge[order(dataSBP$pl_sampleid), ])
+# carbon_df_ord_TB <- carbon_df_TB[order(carbon_df_TB[,1]),
+#                            order(colnames(carbon_df_TB), decreasing = T)]
+# 
+# ##### scatter plot carbon for each sample pt: carbon based on map (age_carbon_df) ####
+# # vs carbon based on CEO (CEOcarbonNReg from below made with start age 47)
+# # for 2021 only
+# plot(CEOcarbonNReg[order(dataSBP$pl_sampleid), 'carbon2021NReg'],
+#      carbon_df_ord$X2021_carbon*0.09,
+#      pch=19, xlab='based on CEO', ylab='based on map',
+#      main='Estimate carbon in sample plots (tonne) in 2021')
+# lines(0:7, 0:7)
 
 ## estimate carbon per pixel ###
 
@@ -310,7 +322,8 @@ rm(dataSBP_TB,CEOStandAge_TB, CEOcarbonTropHum, CEOcarbonTropHumLow, CEOcarbonTr
 
 # area weighted estimates of total carbon ####
 ### select data of interest - per-pixel carbon estimate and ci ####
-C_est_ci_df_TB <- CarbonTropHum
+# C_est_ci_df_TB <- CarbonTropHum
+C_est_ci_df_TB <- CarbonTropHum[1:87, ]  # just farm, no counterfactual area
 forest_type_TB <- 'TropHum'
 forest_type_full_TB <- 'tropical_humid'
 
@@ -318,31 +331,44 @@ forest_type_full_TB <- 'tropical_humid'
 C_est_ci_df_TB$count[C_est_ci_df_TB$count == 5] <- 6
 
 ### survey design ####
+#### simple random sample ####
+pop_size <- sum(dataStrata_TB$count) + 1  # 5 -> 6 in deforestation stratum
+sample_size <- nrow(C_est_ci_df_TB)
+C_est_ci_df_TB$sample_wgt <- pop_size / sample_size
+C_est_ci_df_TB$pop_size <- pop_size
+srs_design <- svydesign(id = ~1, weights = ~sample_wgt, fpc = ~pop_size,
+                        data = C_est_ci_df_TB)
+srs_design
+
+#### stratified random sample ####
 strat_design_TB <- svydesign(id = ~1, strata = ~pl_strata, fpc = ~count,
-                          data = C_est_ci_df_TB)
+                             data = C_est_ci_df_TB)
 strat_design_TB
 
 ### total carbon & confidence intervals based on ####
 ### 1) per-pixel carbon estimate, 2) upper CI of per-pixel C est
 ### and 3) lower CI of per-pixel C est.
+# specify sample design
+sample_design <- srs_design
+
 C_est_ci_ci_df_TB <- data.frame()
 
 for (yyyy in 2017:2021) { #! UPDATE FOR CORRECT YEARS
   # total C and CI based on per-pixel C estimate
   C_est_formula_TB <- as.formula(paste0('~carbon',as.character(yyyy),forest_type_TB))
-  svy_tot_TB <- svytotal(C_est_formula_TB, strat_design_TB)  # total C
+  svy_tot_TB <- svytotal(C_est_formula_TB, sample_design)  # total C
   ci_TB <- confint(svy_tot_TB)  # CI of total C
   C_est_ci_yyyy_TB <- cbind(coef(svy_tot_TB), ci_TB)
   # total C and CI based on upperCI of per-pixel C estimate
   C_est_formula_up_TB <- as.formula(paste0('~carbon',as.character(yyyy),
                                         forest_type_TB,'Up'))
-  svy_tot_up_TB <- svytotal(C_est_formula_up_TB, strat_design_TB)  # total C
+  svy_tot_up_TB <- svytotal(C_est_formula_up_TB, sample_design)  # total C
   ci_up_TB <- confint(svy_tot_up_TB)  # CI of total C
   C_est_ci_yyyy_up_TB <- cbind(coef(svy_tot_up_TB), ci_up_TB)
   # total C and CI based on lowerCI of per-pixel C estimate
   C_est_formula_low_TB <- as.formula(paste0('~carbon',as.character(yyyy),
                                          forest_type_TB,'Low'))
-  svy_tot_low_TB <- svytotal(C_est_formula_low_TB, strat_design_TB)  # total C
+  svy_tot_low_TB <- svytotal(C_est_formula_low_TB, sample_design)  # total C
   ci_low_TB <- confint(svy_tot_low_TB)  # CI of total C
   C_est_ci_yyyy_low_TB <- cbind(coef(svy_tot_low_TB), ci_low_TB)
   # save all results
@@ -363,10 +389,10 @@ colnames(C_est_ci_ci_df_TB) <- c('year',
                               'low95CI_totalC_estimate_from_lowGrowthFunc_ton')
 view(C_est_ci_ci_df_TB)
 
-write.csv(C_est_ci_ci_df_TB, file = paste0(path, 'results\\',
-                                        'C_estimate_95ci_loMiUpGrowthFunc_',
+write.csv(C_est_ci_ci_df_TB, file = paste0(path, '..\\results\\',
+                                        'C_SRSestimate_95ci_loMiUpGrowthFunc_',
                                         'start',
-                                        as.character(StartAge_TB),
+                                        as.character(StartAge_TB) %>% str_replace_all('\\.', '-'),
                                         '_',
                                         forest_type_full_TB,
                                         '.csv'))
