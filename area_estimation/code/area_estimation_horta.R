@@ -382,8 +382,8 @@ for (LU in site_types) {
   C_est_ci_df_TB <- cbind(2017:2021, C_est_ci_df_TB)
   colnames(C_est_ci_df_TB) <- c('year',
                                 'totalC_estimate_from_growthFunc_ton',
-                                'upp95CI_totalC_estimate_from_growthFunc_ton',
-                                'low95CI_totalC_estimate_from_growthFunc_ton')
+                                'low95CI_totalC_estimate_from_growthFunc_ton',
+                                'upp95CI_totalC_estimate_from_growthFunc_ton')
                                 # 'totalC_estimate_from_uppGrowthFunc_ton',
                                 # 'upp95CI_totalC_estimate_from_uppGrowthFunc_ton',
                                 # 'low95CI_totalC_estimate_from_uppGrowthFunc_ton',
