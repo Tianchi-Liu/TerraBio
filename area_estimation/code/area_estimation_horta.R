@@ -14,7 +14,7 @@ dataCEOYR_TB_cf <- read.csv(paste(path,'ceo-TerraBio_CounterfactualArea_2017_202
 colnames(dataCEOYR_TB_cf)
 # all CEO data: farm + counterfactual area
 dataCEOYR_TB <- bind_rows(dataCEOYR_TB_farm, dataCEOYR_TB_cf)
-# keep cols in farm data
+# keep cols in farm data for existing code to work
 dataCEOYR_TB_raw <- dataCEOYR_TB[, colnames(dataCEOYR_TB_farm)]  
 
 ## read in land use info of CEO data ####
@@ -34,6 +34,7 @@ dataCEOYR_TB <- merge(dataCEOYR_TB_raw, LU_df,
                       by.x = c('lon', 'lat'), by.y = c('LON', 'LAT'))
 
 ## read in and prep GEE data ####
+# not used in analysis, run to prevent existing code from breaking
 dataGEE_TB <- read.csv(paste(path,'ceo-standage-horta-2017-2021-clean.csv', sep = ""))
 colnames(dataGEE_TB)
 colnames(dataGEE_TB)[14]<-'Loss17_21'  # "Forest.loss.2017.2021." T/F
@@ -45,7 +46,7 @@ dataGEE_TB<-dataGEE_TB[,c(29, 28, 20, 22, 21, 14, 13, 12, 15, 6:10)]
 colnames(dataGEE_TB)
 head(dataGEE_TB)
 
-## Prepare CEO data for merging with GEE data ####
+## prepare CEO data for merging with GEE data ####
 colnames(dataCEOYR_TB)
 colnames(dataCEOYR_TB)[16]<-'LC_forest_2021CEO'  # Yes/No
 colnames(dataCEOYR_TB)[17]<-'Forest_Loss_17_21'  # Yes/No
@@ -66,17 +67,17 @@ colnames(dataall_TB)  # "LC_forest_2021CEO""YrLossCEO""YrGainCEO" "land_use"
 # from dataCEOYR
 
 ## read in and prep strata pixel-count data ####
+# not used in analysis, run to prevent existing code from breaking
 dataStrata_TB <- read.csv(paste(path, "countsReadable_Horta_lt_loss_greatest_2017_2021_SAMZguidance_Neutral_v2.csv", sep = ""))
 head(dataStrata_TB)
 dataStrata_TB[,c(3, 2, 4)]
 dataStrata_TB <- rename(dataStrata_TB, strataName=readable)
 
-## Merge strata pixel-count data with CEO-GEE-combo data #### CEO has pl_strata
+## merge strata pixel-count data with CEO-GEE-combo data #### CEO has pl_strata
 dataSBP_TB<- merge(dataall_TB, dataStrata_TB[c(3, 2, 4)], 
                    by.x= 'pl_strata', by.y = 'map_value', all.x = T)
 head(dataSBP_TB)
 colnames(dataSBP_TB)  # count, strataName from dataStrata
-rm(dataCEOYR_TB, dataall_TB, dataGEE_TB, dataStrata_TB)
 
 ######################
 
@@ -270,7 +271,7 @@ view(CEOStandAge_TB)
 #      main='Estimate carbon in sample plots (tonne) in 2021')
 # lines(0:7, 0:7)
 
-## estimate carbon per pixel ###
+## estimate carbon per pixel ####
 
 ### tropical humid forest south america: ####
 # values from:
@@ -310,25 +311,26 @@ for (i in 1:5){
   colnames(CEOcarbonTropHumLow)[i] <- paste0('carbon', 2022-i, 'TropHumLow')
 }
 
-#CarbonCon <- cbind(dataSBP, CEOcarbonCON, CEOcarbonCONlow, CEOcarbonCONup)
 CarbonTropHum <- cbind(dataSBP_TB, CEOcarbonTropHum, CEOcarbonTropHumLow, CEOcarbonTropHumUp)
-
-# view(round(CEOcarbonNReg[order(dataSBP$pl_sampleid), ],2))
-
-rm(dataSBP_TB,CEOStandAge_TB, CEOcarbonTropHum, CEOcarbonTropHumLow, CEOcarbonTropHumUp)
+# rm(dataSBP_TB,CEOStandAge_TB, CEOcarbonTropHum, CEOcarbonTropHumLow, CEOcarbonTropHumUp)
 
 
-
-
-# area weighted estimates of total carbon ####
+# estimates of total carbon ####
 ### select data of interest - per-pixel carbon estimate and ci ####
-# C_est_ci_df_TB <- CarbonTropHum
-C_est_ci_df_TB <- CarbonTropHum[1:87, ]  # just farm, no counterfactual area
+C_est_ci_df_TB <- CarbonTropHum  # farm + counterfactual area
+# C_est_ci_df_TB <- CarbonTropHum[1:87, ]  # just farm, no counterfactual area
 forest_type_TB <- 'TropHum'
 forest_type_full_TB <- 'tropical_humid'
 
-### quick fix of count ####
-C_est_ci_df_TB$count[C_est_ci_df_TB$count == 5] <- 6
+### estimate # of pixels per land use/site type ####
+table(C_est_ci_df_TB$land_use)
+site_types <- c('counterfactual', 'forest', 'intervention', 'other', 'regeneration')
+A_sites_m2 <- c(18132, 21369, 11221, NA, 75422)
+A_farm_m2 <- 378221
+names(A_sites_m2) <- site_types
+A_other_m2 <- A_farm_m2 - sum(A_sites_m2[c('forest', 'intervention', 'regeneration')])
+A_sites_m2['other'] <- A_other_m2
+pop_size_per_site <- round(A_sites_m2 / (30 * 30), 0)
 
 ### survey design ####
 #### simple random sample ####
@@ -339,11 +341,6 @@ C_est_ci_df_TB$pop_size <- pop_size
 srs_design <- svydesign(id = ~1, weights = ~sample_wgt, fpc = ~pop_size,
                         data = C_est_ci_df_TB)
 srs_design
-
-#### stratified random sample ####
-strat_design_TB <- svydesign(id = ~1, strata = ~pl_strata, fpc = ~count,
-                             data = C_est_ci_df_TB)
-strat_design_TB
 
 ### total carbon & confidence intervals based on ####
 ### 1) per-pixel carbon estimate, 2) upper CI of per-pixel C est
