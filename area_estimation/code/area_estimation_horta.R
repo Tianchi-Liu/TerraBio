@@ -316,7 +316,7 @@ CarbonTropHum <- cbind(dataSBP_TB, CEOcarbonTropHum) #, CEOcarbonTropHumLow, CEO
 
 
 # estimates of total carbon ####
-### select data of interest - per-pixel carbon estimate and ci ####
+### select data of interest - per-pixel carbon estimate ####
 C_est_allSites_df_TB <- CarbonTropHum  # farm + counterfactual area
 # C_est_ci_df_TB <- CarbonTropHum[1:87, ]  # just farm, no counterfactual area
 forest_type_TB <- 'TropHum'
@@ -333,68 +333,72 @@ A_sites_m2['other'] <- A_other_m2
 pop_size_per_site <- round(A_sites_m2 / (30 * 30), 0)
 
 
-LU <- site_types[1]
-C_est_df_TB <- filter(C_est_allSites_df_TB, land_use==LU)
-
-### survey design ####
-#### simple random sample ####
-pop_size <- pop_size_per_site[LU]
-sample_size <- nrow(C_est_df_TB)
-C_est_df_TB$sample_wgt <- pop_size / sample_size
-C_est_df_TB$pop_size <- pop_size
-srs_design <- svydesign(id = ~1, weights = ~sample_wgt, fpc = ~pop_size,
-                        data = C_est_df_TB)
-srs_design
-
-### total carbon & confidence intervals based on ####
-### 1) per-pixel carbon estimate, 2) upper CI of per-pixel C est
-### and 3) lower CI of per-pixel C est.
-# specify sample design
-sample_design <- srs_design
-
-C_est_ci_df_TB <- data.frame()
-
-for (yyyy in 2017:2021) { #! UPDATE FOR CORRECT YEARS
-  # total C and CI based on per-pixel C estimate
-  C_est_formula_TB <- as.formula(paste0('~carbon',as.character(yyyy),forest_type_TB))
-  svy_tot_TB <- svytotal(C_est_formula_TB, sample_design)  # total C
-  ci_TB <- confint(svy_tot_TB)  # CI of total C
-  C_est_ci_yyyy_TB <- cbind(coef(svy_tot_TB), ci_TB)
-  # # total C and CI based on upperCI of per-pixel C estimate
-  # C_est_formula_up_TB <- as.formula(paste0('~carbon',as.character(yyyy),
-  #                                       forest_type_TB,'Up'))
-  # svy_tot_up_TB <- svytotal(C_est_formula_up_TB, sample_design)  # total C
-  # ci_up_TB <- confint(svy_tot_up_TB)  # CI of total C
-  # C_est_ci_yyyy_up_TB <- cbind(coef(svy_tot_up_TB), ci_up_TB)
-  # # total C and CI based on lowerCI of per-pixel C estimate
-  # C_est_formula_low_TB <- as.formula(paste0('~carbon',as.character(yyyy),
-  #                                        forest_type_TB,'Low'))
-  # svy_tot_low_TB <- svytotal(C_est_formula_low_TB, sample_design)  # total C
-  # ci_low_TB <- confint(svy_tot_low_TB)  # CI of total C
-  # C_est_ci_yyyy_low_TB <- cbind(coef(svy_tot_low_TB), ci_low_TB)
-  # save all results
-  C_est_ci_df_TB <- rbind(C_est_ci_df_TB, C_est_ci_yyyy_TB)
+for (LU in site_types) {
+  print(LU)
+  C_est_df_TB <- filter(C_est_allSites_df_TB, land_use==LU)  # per-pixel carbon estimate of 1 site
+  
+  ### survey design ####
+  #### simple random sample ####
+  pop_size <- pop_size_per_site[LU]
+  print(pop_size)
+  sample_size <- nrow(C_est_df_TB)
+  print(sample_size)
+  C_est_df_TB$sample_wgt <- pop_size / sample_size
+  C_est_df_TB$pop_size <- pop_size
+  srs_design <- svydesign(id = ~1, weights = ~sample_wgt, fpc = ~pop_size,
+                          data = C_est_df_TB)
+  srs_design
+  
+  ### total carbon & confidence intervals based on ####
+  ### 1) per-pixel carbon estimate, 2) upper CI of per-pixel C est
+  ### and 3) lower CI of per-pixel C est.
+  # specify sample design
+  sample_design <- srs_design
+  
+  C_est_ci_df_TB <- data.frame()
+  
+  for (yyyy in 2017:2021) { #! UPDATE FOR CORRECT YEARS
+    # total C and CI based on per-pixel C estimate
+    C_est_formula_TB <- as.formula(paste0('~carbon',as.character(yyyy),forest_type_TB))
+    svy_tot_TB <- svytotal(C_est_formula_TB, sample_design)  # total C
+    ci_TB <- confint(svy_tot_TB)  # CI of total C
+    C_est_ci_yyyy_TB <- cbind(coef(svy_tot_TB), ci_TB)
+    # # total C and CI based on upperCI of per-pixel C estimate
+    # C_est_formula_up_TB <- as.formula(paste0('~carbon',as.character(yyyy),
+    #                                       forest_type_TB,'Up'))
+    # svy_tot_up_TB <- svytotal(C_est_formula_up_TB, sample_design)  # total C
+    # ci_up_TB <- confint(svy_tot_up_TB)  # CI of total C
+    # C_est_ci_yyyy_up_TB <- cbind(coef(svy_tot_up_TB), ci_up_TB)
+    # # total C and CI based on lowerCI of per-pixel C estimate
+    # C_est_formula_low_TB <- as.formula(paste0('~carbon',as.character(yyyy),
+    #                                        forest_type_TB,'Low'))
+    # svy_tot_low_TB <- svytotal(C_est_formula_low_TB, sample_design)  # total C
+    # ci_low_TB <- confint(svy_tot_low_TB)  # CI of total C
+    # C_est_ci_yyyy_low_TB <- cbind(coef(svy_tot_low_TB), ci_low_TB)
+    # save all results
+    C_est_ci_df_TB <- rbind(C_est_ci_df_TB, C_est_ci_yyyy_TB)
+  }
+  C_est_ci_df_TB
+  C_est_ci_df_TB <- cbind(2017:2021, C_est_ci_df_TB)
+  colnames(C_est_ci_df_TB) <- c('year',
+                                'totalC_estimate_from_growthFunc_ton',
+                                'upp95CI_totalC_estimate_from_growthFunc_ton',
+                                'low95CI_totalC_estimate_from_growthFunc_ton')
+                                # 'totalC_estimate_from_uppGrowthFunc_ton',
+                                # 'upp95CI_totalC_estimate_from_uppGrowthFunc_ton',
+                                # 'low95CI_totalC_estimate_from_uppGrowthFunc_ton',
+                                # 'totalC_estimate_from_lowGrowthFunc_ton',
+                                # 'upp95CI_totalC_estimate_from_lowGrowthFunc_ton',
+                                # 'low95CI_totalC_estimate_from_lowGrowthFunc_ton')
+  view(C_est_ci_df_TB)
+  
+  write.csv(C_est_ci_df_TB, file = paste0(path, '..\\results\\',
+                                          'C_SRSestimate_95ci_growthFunc_',
+                                          'start',
+                                          as.character(StartAge_TB) %>% str_replace_all('\\.', '-'),
+                                          '_',
+                                          LU,
+                                          '_',
+                                          forest_type_full_TB,
+                                          '.csv'))
 }
-C_est_ci_df_TB
-C_est_ci_df_TB <- cbind(2017:2021, C_est_ci_df_TB)
-colnames(C_est_ci_df_TB) <- c('year',
-                              'totalC_estimate_from_growthFunc_ton',
-                              'upp95CI_totalC_estimate_from_growthFunc_ton',
-                              'low95CI_totalC_estimate_from_growthFunc_ton')
-                              # 'totalC_estimate_from_uppGrowthFunc_ton',
-                              # 'upp95CI_totalC_estimate_from_uppGrowthFunc_ton',
-                              # 'low95CI_totalC_estimate_from_uppGrowthFunc_ton',
-                              # 'totalC_estimate_from_lowGrowthFunc_ton',
-                              # 'upp95CI_totalC_estimate_from_lowGrowthFunc_ton',
-                              # 'low95CI_totalC_estimate_from_lowGrowthFunc_ton')
-view(C_est_ci_df_TB)
-
-write.csv(C_est_ci_df_TB, file = paste0(path, '..\\results\\',
-                                        'C_SRSestimate_95ci_growthFunc_',
-                                        'start',
-                                        as.character(StartAge_TB) %>% str_replace_all('\\.', '-'),
-                                        '_',
-                                        LU,
-                                        '_',
-                                        forest_type_full_TB,
-                                        '.csv'))
