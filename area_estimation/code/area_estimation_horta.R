@@ -245,6 +245,11 @@ for (r in 1:nrow(dataSBP_TB)) {
 }
 view(CEOStandAge_TB)
 
+#### manual update of stand age ####
+# assume stand age = 1 in 2021 for CEO points in intervention site
+CEOStandAge_TB[dataSBP_TB$land_use=='intervention', '2021'] <- 1
+CEOStandAge_TB[dataSBP_TB$land_use=='intervention', ]
+
 # #### compare with stand age and carbon by year from the map ####
 # # Carbon assumes a forest start age of 80 and is for natural regeneration
 # age_carbon_df_TB <- read.csv(paste(path, 'ceo-samples-standage-carbon-horta.csv', sep = ""))
@@ -314,6 +319,7 @@ for (i in 1:5){
 CarbonTropHum <- cbind(dataSBP_TB, CEOcarbonTropHum) #, CEOcarbonTropHumLow, CEOcarbonTropHumUp)
 # rm(dataSBP_TB,CEOStandAge_TB, CEOcarbonTropHum, CEOcarbonTropHumLow, CEOcarbonTropHumUp)
 
+# ####
 
 # estimates of total carbon ####
 ### select data of interest - per-pixel carbon estimate ####
@@ -321,6 +327,8 @@ C_est_allSites_df_TB <- CarbonTropHum  # farm + counterfactual area
 # C_est_ci_df_TB <- CarbonTropHum[1:87, ]  # just farm, no counterfactual area
 forest_type_TB <- 'TropHum'
 forest_type_full_TB <- 'tropical_humid'
+
+
 
 ### estimate # of pixels per land use/site type ####
 table(C_est_allSites_df_TB$land_use)
@@ -392,13 +400,19 @@ for (LU in site_types) {
                                 # 'low95CI_totalC_estimate_from_lowGrowthFunc_ton')
   view(C_est_ci_df_TB)
   
-  write.csv(C_est_ci_df_TB, file = paste0(path, '..\\results\\',
-                                          'C_SRSestimate_95ci_growthFunc_',
-                                          'start',
-                                          as.character(StartAge_TB) %>% str_replace_all('\\.', '-'),
-                                          '_',
-                                          LU,
-                                          '_',
-                                          forest_type_full_TB,
-                                          '.csv'))
+  file_name <- paste0(
+    path, '..\\results\\',
+    'C_SRSestimate_95ci_growthFunc_',
+    'start',
+    as.character(StartAge_TB) %>% str_replace_all('\\.', '-'),
+    '_',
+    LU,
+    '_',
+    forest_type_full_TB)
+  
+  if (LU == 'intervention') {
+    file_name <- paste0(file_name, '_1yoIn2021')
+  }
+  
+  write.csv(C_est_ci_df_TB, file = paste0(file_name, '.csv'))
 }
