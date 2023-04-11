@@ -1,5 +1,5 @@
 #####################################################################
-library(survey)
+# library(survey)
 library(tidyverse)
 
 path <- "C:\\Users\\tianc\\OneDrive\\Documents\\SIG\\TerraBio\\TerraBio\\carbon_estimation\\data\\"
@@ -263,12 +263,30 @@ dataSBP_TB$standAge_2021_CEOestYr = 2021 - dataSBP_TB$establishment.year
 
 ## append stand age to data ####
 data_standAge_df <- cbind(dataSBP_TB, CEOStandAge_TB)
+view(data_standAge_df)
 
-# output preprocessed data ####
-write.csv(
-  data_standAge_df, 
-  paste0(path, "..\\results\\horta_2022_stand_ages.csv")
-)
+# # output preprocessed data ####
+# write.csv(
+#   data_standAge_df, 
+#   paste0(path, "..\\results\\horta_2022_stand_ages.csv")
+# )
+
+
+# explore preprocessed data ####
+## YrLossCEO & YrGainCEO ####
+table(data_standAge_df$YrLossCEO)  # 2018/20/21 9999
+table(data_standAge_df$YrGainCEO)  # 2017-2021 9999
+
+## establishment year ####
+view(cbind(
+  data_standAge_df$HasLoss, 
+  data_standAge_df$HasGain,
+  data_standAge_df$LC_forest_2021CEO,
+  data_standAge_df$establishment.year
+  ))
+
+sort(unique(data_standAge_df$establishment.year))  # 1969-2020
+
 
 # compare stand age ####
 ## stand age inferred from CEO establishment year vs that inferred from ####
@@ -282,10 +300,34 @@ ggplot(data_standAge_df, aes(x=standAge_logic, y=standAge_2021_CEOestYr)) +
   ggtitle('stand age in 2021 inferred from CEO answers (years)') +
   scale_x_continuous(limits=c(-2,55), breaks=seq(0,55,10)) +
   scale_y_continuous(limits=c(-2,55), breaks=seq(0,55,10))
-ggsave(
-  paste0(path, "..\\results\\horta_2022_stand_age_2021_estYr_vs_logic.png"),
-  width=6, height=6
-)
+# ggsave(
+#   paste0(path, "..\\results\\horta_2022_stand_age_2021_estYr_vs_logic.png"),
+#   width=6, height=6
+# )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # #### compare with stand age and carbon by year from the map ####
