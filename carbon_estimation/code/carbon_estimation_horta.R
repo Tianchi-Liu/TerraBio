@@ -2,7 +2,7 @@
 library(survey)
 library(tidyverse)
 
-path <- "C:\\Users\\tianc\\OneDrive\\Documents\\SIG\\TerraBio\\TerraBio\\area_estimation\\data\\"
+path <- "C:\\Users\\tianc\\OneDrive\\Documents\\SIG\\TerraBio\\TerraBio\\carbon_estimation\\data\\"
 
 # preprocess data ####
 ## read in CEO data ####
